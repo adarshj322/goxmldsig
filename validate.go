@@ -418,7 +418,7 @@ func (ctx *ValidationContext) findSignature(root *etree.Element) (*types.Signatu
 }
 
 func (ctx *ValidationContext) verifyCertificate(sig *types.Signature) (*x509.Certificate, error) {
-	now := ctx.Clock.Now()
+	//now := ctx.Clock.Now()
 
 	roots, err := ctx.CertificateStore.Certificates()
 	if err != nil {
