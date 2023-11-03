@@ -6,7 +6,13 @@ import (
 	"encoding/asn1"
 	"crypto/rsa"
 	"fmt"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"errors"
+
 )
+
+
 
 var (
 	oidSignatureMD2WithRSA      = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 2}
@@ -64,6 +70,15 @@ var signatureAlgorithmDetails = []struct {
 	{x509.PureEd25519, "Ed25519", oidSignatureEd25519, x509.Ed25519, crypto.Hash(0) /* no pre-hashing */},
 }
 
+func isRSAPSS(algo x509.SignatureAlgorithm) bool {
+	switch algo {
+	case x509.SHA256WithRSAPSS, x509.SHA384WithRSAPSS, x509.SHA512WithRSAPSS:
+		return true
+	default:
+		return false
+	}
+}
+
 func signaturePublicKeyAlgoMismatchError(expectedPubKeyAlgo x509.PublicKeyAlgorithm, pubKey any) error {
 	return fmt.Errorf("x509: signature algorithm specifies an %s public key, but have public key of type %T", expectedPubKeyAlgo.String(), pubKey)
 }
@@ -109,13 +124,13 @@ func checkSignature(algo x509.SignatureAlgorithm, signed, signature []byte, publ
 		if pubKeyAlgo != x509.RSA {
 			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
 		}
-		if algo.isRSAPSS() {
+		if isRSAPSS(algo) {
 			return rsa.VerifyPSS(pub, hashType, signed, signature, &rsa.PSSOptions{SaltLength: rsa.PSSSaltLengthEqualsHash})
 		} else {
 			return rsa.VerifyPKCS1v15(pub, hashType, signed, signature)
 		}
 	case *ecdsa.PublicKey:
-		if pubKeyAlgo != ECDSA {
+		if pubKeyAlgo != x509.ECDSA {
 			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
 		}
 		if !ecdsa.VerifyASN1(pub, signed, signature) {
@@ -123,7 +138,7 @@ func checkSignature(algo x509.SignatureAlgorithm, signed, signature []byte, publ
 		}
 		return
 	case ed25519.PublicKey:
-		if pubKeyAlgo != Ed25519 {
+		if pubKeyAlgo != x509.Ed25519 {
 			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
 		}
 		if !ed25519.Verify(pub, signed, signature) {
@@ -131,5 +146,5 @@ func checkSignature(algo x509.SignatureAlgorithm, signed, signature []byte, publ
 		}
 		return
 	}
-	return ErrUnsupportedAlgorithm
+	return x509.ErrUnsupportedAlgorithm
 }
