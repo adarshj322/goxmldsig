@@ -1,6 +1,6 @@
 module github.com/adarshj322/goxmldsig
 
-go 1.15
+go 1.21
 
 require (
 	github.com/beevik/etree v1.2.0

@@ -2,11 +2,15 @@ package dsig
 
 import (
 	"bytes"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"math/big"
 	"regexp"
+
+	"crypto"
 
 	"github.com/beevik/etree"
 	"github.com/russellhaering/goxmldsig/etreeutils"
@@ -189,6 +193,45 @@ func (ctx *ValidationContext) digest(el *etree.Element, digestAlgorithmId string
 	return hash.Sum(nil), nil
 }
 
+func (ctx *ValidationContext) verifySigUsingPublicKey(sig *types.Signature, canonicalizer Canonicalizer, signatureMethodId string, publicKey crypto.PublicKey, decodedSignature []byte) error {
+
+	signatureElement := sig.UnderlyingElement()
+
+	nsCtx, err := etreeutils.NSBuildParentContext(signatureElement)
+	if err != nil {
+		return err
+	}
+
+	signedInfo, err := etreeutils.NSFindOneChildCtx(nsCtx, signatureElement, Namespace, SignedInfoTag)
+	if err != nil {
+		return err
+	}
+
+	if signedInfo == nil {
+		return errors.New("Missing SignedInfo")
+	}
+
+	// Canonicalize the xml
+	canonical, err := canonicalSerialize(signedInfo)
+	if err != nil {
+		return err
+	}
+
+	algo, ok := x509SignatureAlgorithmByIdentifier[signatureMethodId]
+	if !ok {
+		return errors.New("Unknown signature method: " + signatureMethodId)
+	}
+
+	err = checkSignature(algo, canonical, decodedSignature, publicKey, true)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
+
 func (ctx *ValidationContext) verifySignedInfo(sig *types.Signature, canonicalizer Canonicalizer, signatureMethodId string, cert *x509.Certificate, decodedSignature []byte) error {
 	signatureElement := sig.UnderlyingElement()
 
@@ -224,6 +267,69 @@ func (ctx *ValidationContext) verifySignedInfo(sig *types.Signature, canonicaliz
 
 	return nil
 }
+
+func (ctx *ValidationContext) validateSigUsingPublicKey(el *etree.Element, sig *types.Signature, publicKey crypto.PublicKey) (*etree.Element, error) {
+
+	idAttrEl := el.SelectAttr(ctx.IdAttribute)
+	idAttr := ""
+	if idAttrEl != nil {
+		idAttr = idAttrEl.Value
+	}
+
+	var ref *types.Reference
+
+	// Find the first reference which references the top-level element
+	for _, _ref := range sig.SignedInfo.References {
+		if _ref.URI == "" || _ref.URI[1:] == idAttr {
+			ref = &_ref
+		}
+	}
+
+	// Perform all transformations listed in the 'SignedInfo'
+	// Basically, this means removing the 'SignedInfo'
+	transformed, canonicalizer, err := ctx.transform(el, sig, ref)
+	if err != nil {
+		return nil, err
+	}
+
+	digestAlgorithm := ref.DigestAlgo.Algorithm
+
+	// Digest the transformed XML and compare it to the 'DigestValue' from the 'SignedInfo'
+	digest, err := ctx.digest(transformed, digestAlgorithm, canonicalizer)
+	if err != nil {
+		return nil, err
+	}
+
+	decodedDigestValue, err := base64.StdEncoding.DecodeString(ref.DigestValue)
+	if err != nil {
+		return nil, err
+	}
+
+	if !bytes.Equal(digest, decodedDigestValue) {
+		return nil, errors.New("Signature could not be verified")
+	}
+	if sig.SignatureValue == nil {
+		return nil, errors.New("Signature could not be verified")
+	}
+
+	// Decode the 'SignatureValue' so we can compare against it
+	decodedSignature, err := base64.StdEncoding.DecodeString(sig.SignatureValue.Data)
+	if err != nil {
+		return nil, errors.New("Could not decode signature")
+	}
+
+	// Actually verify the 'SignedInfo' was signed by a trusted source
+	signatureMethod := sig.SignedInfo.SignatureMethod.Algorithm
+
+	err = ctx.verifySigUsingPublicKey(sig, canonicalizer, signatureMethod, publicKey, decodedSignature)
+	if err != nil {
+		return nil, err
+	}
+
+	return transformed, nil
+}
+
+
 
 func (ctx *ValidationContext) validateSignature(el *etree.Element, sig *types.Signature, cert *x509.Certificate) (*etree.Element, error) {
 	idAttrEl := el.SelectAttr(ctx.IdAttribute)
@@ -464,6 +570,45 @@ func (ctx *ValidationContext) verifyCertificate(sig *types.Signature) (*x509.Cer
 	return cert, nil
 }
 
+
+func (ctx *ValidationContext) getPublicKey(sig *types.Signature) (crypto.PublicKey, error) {
+
+	var publicKey crypto.PublicKey
+
+	if sig.KeyInfo != nil {
+
+		if len(sig.KeyInfo.KeyValue.RSAKeyValue) == 0 || sig.KeyInfo.KeyValue.RSAKeyValue.Data == "" {
+			return nil,  errors.New("missing PublicKey within KeyInfo")
+		}
+
+		modulusBytes, err := base64.StdEncoding.DecodeString(sig.KeyInfo.KeyValue.RSAKeyValue.Modulus)
+		if err != nil {
+			//fmt.Printf("error: %v", err)
+			return nil, err
+		}
+
+		exponentBytes, err := base64.StdEncoding.DecodeString(sig.KeyInfo.KeyValue.RSAKeyValue.Exponent)
+		if err != nil {
+			//fmt.Printf("error: %v", err)
+			return nil, err
+		}
+
+		modulus := new(big.Int).SetBytes(modulusBytes)
+		exponent := new(big.Int).SetBytes(exponentBytes)
+
+
+		publicKey = rsa.PublicKey{
+			N: modulus,
+			E: int(exponent.Int64()),
+		}
+
+	}
+
+	return publicKey, nil
+	
+
+}
+
 // Validate verifies that the passed element contains a valid enveloped signature
 // matching a currently-valid certificate in the context's CertificateStore.
 func (ctx *ValidationContext) Validate(el *etree.Element) (*etree.Element, error) {
@@ -475,10 +620,13 @@ func (ctx *ValidationContext) Validate(el *etree.Element) (*etree.Element, error
 		return nil, err
 	}
 
-	cert, err := ctx.verifyCertificate(sig)
+	pubKey, err := ctx.getPublicKey(sig)
 	if err != nil {
 		return nil, err
 	}
 
-	return ctx.validateSignature(el, sig, cert)
+	return ctx.validateSigUsingPublicKey(el, sig, pubKey)
 }
+
+
+
