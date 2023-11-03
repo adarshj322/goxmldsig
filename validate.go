@@ -577,7 +577,7 @@ func (ctx *ValidationContext) getPublicKey(sig *types.Signature) (crypto.PublicK
 
 	if sig.KeyInfo != nil {
 
-		if len(sig.KeyInfo.KeyValue.RSAKeyValue) == 0 || sig.KeyInfo.KeyValue.RSAKeyValue.Data == "" {
+		if len(sig.KeyInfo.KeyValue.RSAKeyValue) == 0 || sig.KeyInfo.KeyValue.RSAKeyValue.Modulus == "" {
 			return nil,  errors.New("missing PublicKey within KeyInfo")
 		}
 

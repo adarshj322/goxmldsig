@@ -59,18 +59,31 @@ type SignatureValue struct {
 
 type KeyInfo struct {
 	XMLName  xml.Name `xml:"http://www.w3.org/2000/09/xmldsig# KeyInfo"`
-	X509Data X509Data `xml:"X509Data"`
+	//X509Data X509Data `xml:"X509Data"`
+	KeyValue KeyValue `xml:"KeyValue"`
+
 }
 
-type X509Data struct {
-	XMLName          xml.Name          `xml:"http://www.w3.org/2000/09/xmldsig# X509Data"`
-	X509Certificates []X509Certificate `xml:"X509Certificate"`
+type KeyValue struct {
+	XMLName  xml.Name `xml:"http://www.w3.org/2000/09/xmldsig# KeyValue"`
+	RSAKeyValue RSAKeyValue `xml:"RSAKeyValue`
 }
 
-type X509Certificate struct {
-	XMLName xml.Name `xml:"http://www.w3.org/2000/09/xmldsig# X509Certificate"`
-	Data    string   `xml:",chardata"`
+type RSAKeyValue struct {
+	XMLName  xml.Name `xml:"http://www.w3.org/2000/09/xmldsig# KeyValue"`
+	Modulus string `xml:"Modulus"`
+	Exponent string `xml:"Exponent"`
 }
+
+// type X509Data struct {
+// 	XMLName          xml.Name          `xml:"http://www.w3.org/2000/09/xmldsig# X509Data"`
+// 	X509Certificates []X509Certificate `xml:"X509Certificate"`
+// }
+
+// type X509Certificate struct {
+// 	XMLName xml.Name `xml:"http://www.w3.org/2000/09/xmldsig# X509Certificate"`
+// 	Data    string   `xml:",chardata"`
+// }
 
 type Signature struct {
 	XMLName        xml.Name        `xml:"http://www.w3.org/2000/09/xmldsig# Signature"`
