@@ -94,6 +94,7 @@ func checkSignature(algo x509.SignatureAlgorithm, signed, signature []byte, publ
 		}
 	}
 
+	
 	switch hashType {
 	case crypto.Hash(0):
 		if pubKeyAlgo != x509.Ed25519 {
@@ -119,6 +120,7 @@ func checkSignature(algo x509.SignatureAlgorithm, signed, signature []byte, publ
 		signed = h.Sum(nil)
 	}
 
+	
 	switch pub := publicKey.(type) {
 	case *rsa.PublicKey:
 		if pubKeyAlgo != x509.RSA {
@@ -146,5 +148,6 @@ func checkSignature(algo x509.SignatureAlgorithm, signed, signature []byte, publ
 		}
 		return
 	}
+
 	return x509.ErrUnsupportedAlgorithm
 }

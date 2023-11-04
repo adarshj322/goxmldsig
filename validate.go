@@ -12,9 +12,9 @@ import (
 
 	"crypto"
 
+	"github.com/adarshj322/goxmldsig/etreeutils"
+	"github.com/adarshj322/goxmldsig/types"
 	"github.com/beevik/etree"
-	"github.com/russellhaering/goxmldsig/etreeutils"
-	"github.com/russellhaering/goxmldsig/types"
 )
 
 var uriRegexp = regexp.MustCompile("^#[a-zA-Z_][\\w.-]*$")
@@ -231,7 +231,6 @@ func (ctx *ValidationContext) verifySigUsingPublicKey(sig *types.Signature, cano
 
 }
 
-
 func (ctx *ValidationContext) verifySignedInfo(sig *types.Signature, canonicalizer Canonicalizer, signatureMethodId string, cert *x509.Certificate, decodedSignature []byte) error {
 	signatureElement := sig.UnderlyingElement()
 
@@ -328,8 +327,6 @@ func (ctx *ValidationContext) validateSigUsingPublicKey(el *etree.Element, sig *
 
 	return transformed, nil
 }
-
-
 
 func (ctx *ValidationContext) validateSignature(el *etree.Element, sig *types.Signature, cert *x509.Certificate) (*etree.Element, error) {
 	idAttrEl := el.SelectAttr(ctx.IdAttribute)
@@ -570,15 +567,16 @@ func (ctx *ValidationContext) verifyCertificate(sig *types.Signature) (*x509.Cer
 	return cert, nil
 }
 
-
 func (ctx *ValidationContext) getPublicKey(sig *types.Signature) (crypto.PublicKey, error) {
 
 	var publicKey crypto.PublicKey
 
 	if sig.KeyInfo != nil {
 
-		if len(sig.KeyInfo.KeyValue.RSAKeyValue) == 0 || sig.KeyInfo.KeyValue.RSAKeyValue.Modulus == "" {
-			return nil,  errors.New("missing PublicKey within KeyInfo")
+		//fmt.Println("KeyValue")
+
+		if sig.KeyInfo.KeyValue.RSAKeyValue.Modulus == "" {
+			return nil, errors.New("missing PublicKey within KeyInfo")
 		}
 
 		modulusBytes, err := base64.StdEncoding.DecodeString(sig.KeyInfo.KeyValue.RSAKeyValue.Modulus)
@@ -596,8 +594,7 @@ func (ctx *ValidationContext) getPublicKey(sig *types.Signature) (crypto.PublicK
 		modulus := new(big.Int).SetBytes(modulusBytes)
 		exponent := new(big.Int).SetBytes(exponentBytes)
 
-
-		publicKey = rsa.PublicKey{
+		publicKey = &rsa.PublicKey{
 			N: modulus,
 			E: int(exponent.Int64()),
 		}
@@ -605,7 +602,6 @@ func (ctx *ValidationContext) getPublicKey(sig *types.Signature) (crypto.PublicK
 	}
 
 	return publicKey, nil
-	
 
 }
 
@@ -627,6 +623,3 @@ func (ctx *ValidationContext) Validate(el *etree.Element) (*etree.Element, error
 
 	return ctx.validateSigUsingPublicKey(el, sig, pubKey)
 }
-
-
-

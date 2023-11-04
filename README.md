@@ -1,7 +1,7 @@
 # goxmldsig
 
-![Build Status](https://github.com/russellhaering/goxmldsig/actions/workflows/test.yml/badge.svg?branch=main)
-[![GoDoc](https://godoc.org/github.com/russellhaering/goxmldsig?status.svg)](https://godoc.org/github.com/russellhaering/goxmldsig)
+![Build Status](https://github.com/adarshj322/goxmldsig/actions/workflows/test.yml/badge.svg?branch=main)
+[![GoDoc](https://godoc.org/github.com/adarshj322/goxmldsig?status.svg)](https://godoc.org/github.com/adarshj322/goxmldsig)
 
 XML Digital Signatures implemented in pure Go.
 
@@ -10,16 +10,16 @@ XML Digital Signatures implemented in pure Go.
 Install `goxmldsig` using `go get`:
 
 ```
-$ go get github.com/russellhaering/goxmldsig
+$ go get github.com/adarshj322/goxmldsig
 ```
 
 ## Usage
 
-Include the [`types.Signature`](https://pkg.go.dev/github.com/russellhaering/goxmldsig/types#Signature) struct from this package in your application messages.
+Include the [`types.Signature`](https://pkg.go.dev/github.com/adarshj322/goxmldsig/types#Signature) struct from this package in your application messages.
 
 ```go
 import (
-    sigtypes "github.com/russellhaering/goxmldsig/types"
+    sigtypes "github.com/adarshj322/goxmldsig/types"
 )
 
 type AppHdr struct {
@@ -35,7 +35,7 @@ package main
 
 import (
     "github.com/beevik/etree"
-    "github.com/russellhaering/goxmldsig"
+    "github.com/adarshj322/goxmldsig"
 )
 
 func main() {
@@ -97,7 +97,7 @@ func validate(root *x509.Certificate, el *etree.Element) {
 
 ## Limitations
 
-This library was created in order to [implement SAML 2.0](https://github.com/russellhaering/gosaml2)
+This library was created in order to [implement SAML 2.0](https://github.com/adarshj322/gosaml2)
 without needing to execute a command line tool to create and validate signatures. It currently
 only implements the subset of relevant standards needed to support that implementation, but
 I hope to make it more complete over time. Contributions are welcome.
